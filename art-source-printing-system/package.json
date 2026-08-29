@@ -1,0 +1,17 @@
+{
+  "name": "art-source-printing-system",
+  "version": "0.1.0",
+  "description": "The Art Source Printing Department System - local desktop web application",
+  "private": true,
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "open": "^8.4.2"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
