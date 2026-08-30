@@ -894,6 +894,7 @@ function setView(view) {
   dashboardView.classList.add('is-hidden');
   inventoryView.classList.add('is-hidden');
   document.getElementById('view-print-records').classList.add('is-hidden');
+  document.getElementById('view-settings').classList.add('is-hidden');
   placeholderView.classList.add('is-hidden');
 
   if (view === 'dashboard') {
@@ -907,6 +908,10 @@ function setView(view) {
     document.getElementById('view-print-records').classList.remove('is-hidden');
     title.textContent = 'Print Records';
     initPrintRecordsView();
+  } else if (view === 'settings') {
+    document.getElementById('view-settings').classList.remove('is-hidden');
+    title.textContent = 'Settings';
+    renderOwnerDashboard();
   } else {
     placeholderView.classList.remove('is-hidden');
     title.textContent = MODULE_NAMES[view] || view;
@@ -1279,3 +1284,146 @@ initIssuingForm();
 initConsumableForm();
 initConsumableIssueForm();
 initHistoryControls();
+
+// ---------------- Auth (Owner / Admin login, member management) ----------------
+
+const EDGE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/create-admin';
+const authState = { user: null, profile: null };
+
+function applyAuthUI() {
+  const loggedIn = !!authState.user;
+  const isWriter = authState.profile && (authState.profile.role === 'owner' || authState.profile.role === 'admin');
+
+  document.body.classList.toggle('read-only', !isWriter);
+  document.getElementById('login-open-btn').classList.toggle('is-hidden', loggedIn);
+  document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
+
+  if (loggedIn) {
+    document.getElementById('auth-user-email').textContent = authState.user.email;
+    document.getElementById('auth-user-role').textContent = authState.profile ? authState.profile.role : '';
+  }
+}
+
+async function refreshAuthState() {
+  const { data: { session } } = await db.auth.getSession();
+  authState.user = session ? session.user : null;
+  authState.profile = null;
+
+  if (authState.user) {
+    const { data: profile } = await db.from('profiles').select('role, must_change_password').eq('id', authState.user.id).single();
+    authState.profile = profile || null;
+    if (profile && profile.must_change_password) {
+      document.getElementById('change-password-modal').classList.remove('is-hidden');
+    }
+  }
+  applyAuthUI();
+}
+
+function initAuth() {
+  const loginModal = document.getElementById('login-modal');
+  document.getElementById('login-open-btn').addEventListener('click', () => {
+    loginModal.classList.remove('is-hidden');
+  });
+  document.getElementById('login-cancel-btn').addEventListener('click', () => {
+    loginModal.classList.add('is-hidden');
+  });
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if (error) {
+      setFormMessage('login-message', error.message, 'error');
+      return;
+    }
+    setFormMessage('login-message', '', null);
+    loginModal.classList.add('is-hidden');
+    document.getElementById('login-form').reset();
+    await refreshAuthState();
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await db.auth.signOut();
+    await refreshAuthState();
+  });
+
+  document.getElementById('change-password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newPassword = document.getElementById('new-password').value;
+    const { error } = await db.auth.updateUser({ password: newPassword });
+    if (error) {
+      setFormMessage('change-password-message', error.message, 'error');
+      return;
+    }
+    await db.from('profiles').update({ must_change_password: false }).eq('id', authState.user.id);
+    document.getElementById('change-password-modal').classList.add('is-hidden');
+    document.getElementById('change-password-form').reset();
+    await refreshAuthState();
+  });
+
+  document.getElementById('add-admin-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('admin-email').value.trim();
+    const password = document.getElementById('admin-password').value;
+    const submitBtn = e.target.querySelector('.btn-primary');
+    submitBtn.disabled = true;
+
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      const res = await fetch(EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormMessage('add-admin-message', data.error || 'Could not add admin.', 'error');
+        return;
+      }
+      setFormMessage('add-admin-message', `Added admin ${email}.`, 'success');
+      document.getElementById('add-admin-form').reset();
+      loadMembers();
+    } catch (err) {
+      setFormMessage('add-admin-message', 'Could not reach the server.', 'error');
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  db.auth.onAuthStateChange(() => refreshAuthState());
+  refreshAuthState();
+}
+
+function renderOwnerDashboard() {
+  const isOwner = authState.profile && authState.profile.role === 'owner';
+  document.getElementById('owner-only-notice').classList.toggle('is-hidden', isOwner);
+  document.getElementById('owner-dashboard-content').classList.toggle('is-hidden', !isOwner);
+  if (isOwner) loadMembers();
+}
+
+async function loadMembers() {
+  const tbody = document.getElementById('members-table-body');
+  tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Loading…</td></tr>';
+  try {
+    const { data: rows, error } = await db.from('profiles').select('email, role, must_change_password').order('email');
+    if (error) throw error;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="log-empty">No members yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td>${r.email}</td>
+        <td>${r.role}</td>
+        <td>${r.must_change_password ? 'Yes' : 'No'}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Could not load members.</td></tr>';
+    console.error(err);
+  }
+}
+
+initAuth();
