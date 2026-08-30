@@ -1305,16 +1305,23 @@ function applyAuthUI() {
 }
 
 async function refreshAuthState() {
-  const { data: { session } } = await db.auth.getSession();
-  authState.user = session ? session.user : null;
-  authState.profile = null;
+  const { data: { user }, error } = await db.auth.getUser();
 
-  if (authState.user) {
-    const { data: profile } = await db.from('profiles').select('role, must_change_password').eq('id', authState.user.id).single();
-    authState.profile = profile || null;
-    if (profile && profile.must_change_password) {
-      document.getElementById('change-password-modal').classList.remove('is-hidden');
-    }
+  if (error || !user) {
+    // No valid session (or a stale/invalid one) - reset to a clean
+    // logged-out state instead of getting stuck.
+    if (error) await db.auth.signOut();
+    authState.user = null;
+    authState.profile = null;
+    applyAuthUI();
+    return;
+  }
+
+  authState.user = user;
+  const { data: profile } = await db.from('profiles').select('role, must_change_password').eq('id', user.id).single();
+  authState.profile = profile || null;
+  if (profile && profile.must_change_password) {
+    document.getElementById('change-password-modal').classList.remove('is-hidden');
   }
   applyAuthUI();
 }
