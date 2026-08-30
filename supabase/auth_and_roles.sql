@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- One row per Supabase Auth user we've assigned a role to.
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
     id                    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email                 TEXT NOT NULL,
     role                  TEXT NOT NULL CHECK (role IN ('owner','admin')) DEFAULT 'admin',
@@ -24,13 +24,16 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS profiles_select_own_or_owner ON profiles;
 CREATE POLICY profiles_select_own_or_owner ON profiles
   FOR SELECT USING (auth.uid() = id OR is_owner());
 
+DROP POLICY IF EXISTS profiles_update_own_password_flag ON profiles;
 CREATE POLICY profiles_update_own_password_flag ON profiles
   FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Owner-only: change roles / manage rows for other users.
+DROP POLICY IF EXISTS profiles_owner_manages ON profiles;
 CREATE POLICY profiles_owner_manages ON profiles
   FOR ALL USING (is_owner()) WITH CHECK (is_owner());
 
@@ -57,13 +60,21 @@ REVOKE INSERT ON machines, inks, ink_batches, ink_receipts, consumables,
 GRANT INSERT ON machines, inks, ink_batches, ink_receipts, consumables,
   consumable_receipts, projects, print_records TO authenticated;
 
+DROP POLICY IF EXISTS authenticated_insert ON machines;
 CREATE POLICY authenticated_insert ON machines FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON inks;
 CREATE POLICY authenticated_insert ON inks FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON ink_batches;
 CREATE POLICY authenticated_insert ON ink_batches FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON ink_receipts;
 CREATE POLICY authenticated_insert ON ink_receipts FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON consumables;
 CREATE POLICY authenticated_insert ON consumables FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON consumable_receipts;
 CREATE POLICY authenticated_insert ON consumable_receipts FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON projects;
 CREATE POLICY authenticated_insert ON projects FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
+DROP POLICY IF EXISTS authenticated_insert ON print_records;
 CREATE POLICY authenticated_insert ON print_records FOR INSERT TO authenticated WITH CHECK (is_admin_or_owner());
 
 -- Issuing functions: now require login + admin/owner role too.
