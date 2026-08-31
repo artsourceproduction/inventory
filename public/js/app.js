@@ -1305,12 +1305,12 @@ function applyAuthUI() {
 }
 
 async function refreshAuthState() {
-  const { data: { user }, error } = await db.auth.getUser();
+  const { data: { user } } = await db.auth.getUser();
 
-  if (error || !user) {
-    // No valid session (or a stale/invalid one) - reset to a clean
-    // logged-out state instead of getting stuck.
-    if (error) await db.auth.signOut();
+  if (!user) {
+    // Not logged in - this is the normal state for anonymous viewers,
+    // not an error to react to (calling signOut() here would trigger
+    // another auth-change event and loop forever).
     authState.user = null;
     authState.profile = null;
     applyAuthUI();
