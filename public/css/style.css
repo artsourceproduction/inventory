@@ -505,6 +505,7 @@ tr.is-depleted td:nth-child(4) { font-weight: 600; }
   position: fixed; inset: 0; background: rgba(27,30,34,0.55);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
+.modal-overlay.is-hidden { display: none; }
 .modal-box {
   background: var(--surface); border-radius: 10px; padding: 24px 26px;
   width: 340px; max-width: 90vw; box-shadow: 0 8px 30px rgba(0,0,0,0.25);
