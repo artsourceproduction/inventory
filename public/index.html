@@ -42,21 +42,13 @@
         <span class="nav-label">Reports</span>
         <span class="nav-tag">Phase 4</span>
       </a>
-      <a href="#settings" class="nav-item" data-view="settings" id="settings-nav-item">
+      <a href="#settings" class="nav-item is-disabled" data-view="settings">
         <span class="nav-index">05</span>
         <span class="nav-label">Settings</span>
+        <span class="nav-tag">Phase 5</span>
       </a>
     </nav>
 
-    <div class="sidebar-foot" id="auth-area">
-      <button type="button" class="btn-secondary" id="login-open-btn" style="width:100%;">Log In</button>
-      <div id="logged-in-info" class="is-hidden">
-        <div style="font-size:11.5px;color:#bdc1c8;margin-bottom:6px;">
-          <span id="auth-user-email"></span> · <span id="auth-user-role"></span>
-        </div>
-        <button type="button" class="btn-secondary" id="logout-btn" style="width:100%;">Log Out</button>
-      </div>
-    </div>
     <div class="sidebar-foot">
       <span class="status-dot" id="server-status-dot"></span>
       <span id="server-status-text">Checking server…</span>
@@ -78,53 +70,41 @@
     <section class="view" id="view-dashboard">
 
       <div class="card-grid">
-
-        <div class="card">
-          <span class="card-label">System status</span>
-          <span class="card-value" id="stat-status">—</span>
-          <span class="card-note">Local server &amp; database</span>
+        <div class="card card--clickable" id="projects-card-btn">
+          <span class="card-label">Projects</span>
+          <span class="card-value" id="stat-project-count">—</span>
+          <span class="card-note">View all projects, machines, media &amp; material used</span>
         </div>
-
-        <div class="card">
-          <span class="card-label">Server address</span>
-          <span class="card-value card-value--mono">127.0.0.1:4173</span>
-          <span class="card-note">This machine only — not exposed to the network</span>
-        </div>
-
-        <div class="card">
-          <span class="card-label">Total sessions</span>
-          <span class="card-value" id="stat-sessions">—</span>
-          <span class="card-note">Times this system has been started</span>
-        </div>
-
       </div>
 
-      <div class="panel">
+    </section>
+
+    <section class="view is-hidden" id="view-projects">
+      <div class="panel inv-card">
         <div class="panel-head">
-          <h2>Recent activity</h2>
-          <span class="panel-note">Read from the local SQLite database on every load</span>
+          <h2>Projects</h2>
+          <span class="panel-note">Aggregated from print records</span>
         </div>
-        <table class="log-table" id="log-table">
+        <table class="log-table" id="projects-table">
           <thead>
-            <tr><th>Event</th><th>Timestamp</th></tr>
+            <tr>
+              <th>Project</th>
+              <th>Client</th>
+              <th>Start Date</th>
+              <th>End Date</th>
+              <th>Machines Used</th>
+              <th>Quantity</th>
+              <th>Media Used</th>
+              <th>Total Sqft</th>
+              <th>Rolls Used</th>
+              <th>Length Used (per media)</th>
+            </tr>
           </thead>
-          <tbody id="log-table-body">
-            <tr><td colspan="2" class="log-empty">Loading…</td></tr>
+          <tbody id="projects-table-body">
+            <tr><td colspan="10" class="log-empty">Loading…</td></tr>
           </tbody>
         </table>
       </div>
-
-      <div class="panel panel--muted">
-        <div class="panel-head">
-          <h2>Coming next</h2>
-        </div>
-        <ul class="roadmap">
-          <li><span class="roadmap-index">02</span> Print Records — job logging and tracking</li>
-          <li><span class="roadmap-index">04</span> Reports — usage and stock summaries</li>
-          <li><span class="roadmap-index">05</span> Settings — company &amp; application configuration</li>
-        </ul>
-      </div>
-
     </section>
 
     <section class="view is-hidden" id="view-inventory">
@@ -621,41 +601,6 @@
 
     </section>
 
-    <section class="view is-hidden" id="view-settings">
-      <div class="panel inv-card">
-        <div class="panel-head">
-          <h2>Owner Dashboard — Member Management</h2>
-          <span class="panel-note">Owner assigns admins; admins can make inventory/print record changes</span>
-        </div>
-        <div id="owner-only-notice" class="is-hidden">
-          <p class="log-empty">Only the account owner can manage members.</p>
-        </div>
-        <div id="owner-dashboard-content" class="is-hidden">
-          <form class="receiving-form" id="add-admin-form">
-            <div class="field">
-              <label for="admin-email">Admin Email</label>
-              <input type="email" id="admin-email" required>
-            </div>
-            <div class="field">
-              <label for="admin-password">Default Password</label>
-              <input type="text" id="admin-password" required>
-            </div>
-            <div class="field field--action">
-              <button type="submit" class="btn-primary">Add Admin</button>
-            </div>
-          </form>
-          <p class="form-message" id="add-admin-message"></p>
-
-          <table class="log-table" id="members-table" style="margin-top:20px;">
-            <thead><tr><th>Email</th><th>Role</th><th>Must Change Password</th></tr></thead>
-            <tbody id="members-table-body">
-              <tr><td colspan="3" class="log-empty">Loading…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
     <section class="view is-hidden" id="view-placeholder">
       <div class="placeholder">
         <span class="placeholder-index" id="placeholder-index">02</span>
@@ -665,42 +610,6 @@
     </section>
 
   </main>
-</div>
-
-<div class="modal-overlay is-hidden" id="login-modal">
-  <div class="modal-box">
-    <h2>Log In</h2>
-    <form id="login-form">
-      <div class="field">
-        <label for="login-email">Email</label>
-        <input type="email" id="login-email" required>
-      </div>
-      <div class="field">
-        <label for="login-password">Password</label>
-        <input type="password" id="login-password" required>
-      </div>
-      <p class="form-message" id="login-message"></p>
-      <div style="display:flex; gap:10px; margin-top:10px;">
-        <button type="submit" class="btn-primary">Log In</button>
-        <button type="button" class="btn-secondary" id="login-cancel-btn">Cancel</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-overlay is-hidden" id="change-password-modal">
-  <div class="modal-box">
-    <h2>Set a New Password</h2>
-    <p style="font-size:12.5px;color:var(--ink-600);">This is a default password — set your own before continuing.</p>
-    <form id="change-password-form">
-      <div class="field">
-        <label for="new-password">New Password</label>
-        <input type="password" id="new-password" minlength="6" required>
-      </div>
-      <p class="form-message" id="change-password-message"></p>
-      <button type="submit" class="btn-primary">Set Password</button>
-    </form>
-  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>

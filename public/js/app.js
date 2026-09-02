@@ -33,42 +33,21 @@ async function loadDashboard() {
   const statusText = document.getElementById('server-status-text');
 
   try {
-    // "Server started" no longer applies (no local server) - this now
-    // logs each time the app is opened in a browser, same idea.
-    await db.from('system_log').insert({ event: 'app_opened' });
-
     const { data: settingsRows, error: settingsErr } = await db
       .from('settings').select('key, value').eq('key', 'company_name');
     if (settingsErr) throw settingsErr;
     const companyName = settingsRows[0] ? settingsRows[0].value : 'The Art Source - Printing Department';
-
-    const { count: totalOpens, error: countErr } = await db
-      .from('system_log').select('*', { count: 'exact', head: true }).eq('event', 'app_opened');
-    if (countErr) throw countErr;
-
-    const { data: recent, error: recentErr } = await db
-      .from('system_log').select('created_at').eq('event', 'app_opened')
-      .order('id', { ascending: false }).limit(5);
-    if (recentErr) throw recentErr;
-
     document.getElementById('company-name').textContent = companyName;
-    document.getElementById('stat-status').textContent = 'Online';
-    document.getElementById('stat-sessions').textContent = totalOpens;
 
-    const tbody = document.getElementById('log-table-body');
-    if (recent && recent.length) {
-      tbody.innerHTML = recent
-        .map((r) => `<tr><td>App opened</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`)
-        .join('');
-    } else {
-      tbody.innerHTML = '<tr><td colspan="2" class="log-empty">No activity recorded yet.</td></tr>';
-    }
+    const { count: projectCount, error: countErr } = await db
+      .from('projects').select('*', { count: 'exact', head: true });
+    if (countErr) throw countErr;
+    document.getElementById('stat-project-count').textContent = projectCount;
 
     statusDot.classList.add('is-live');
     statusText.textContent = 'Connected to Supabase';
   } catch (err) {
     statusText.textContent = 'Could not reach Supabase';
-    document.getElementById('stat-status').textContent = 'Offline';
     console.error(err);
   }
 }
@@ -747,6 +726,84 @@ function initConsumableForm() {
   });
 }
 
+async function loadProjectsView() {
+  const tbody = document.getElementById('projects-table-body');
+  tbody.innerHTML = '<tr><td colspan="10" class="log-empty">Loading…</td></tr>';
+
+  try {
+    const { data: projects, error: pErr } = await db.from('projects').select('id, name, client_name').order('name');
+    if (pErr) throw pErr;
+
+    const { data: records, error: rErr } = await db
+      .from('print_records')
+      .select('project_id, quantity, media, printing_date, roll_width, calculated_print_length, calculated_rolls, machines(name)');
+    if (rErr) throw rErr;
+
+    if (!projects.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="log-empty">No projects yet.</td></tr>';
+      return;
+    }
+
+    const SQM_TO_SQFT = 10.7639;
+
+    const rows = projects.map((p) => {
+      const jobs = (records || []).filter((r) => r.project_id === p.id);
+
+      const dates = jobs.map((j) => j.printing_date).filter(Boolean).sort();
+      const startDate = dates[0] || '—';
+      const endDate = dates[dates.length - 1] || '—';
+
+      const machinesUsed = [...new Set(jobs.map((j) => j.machines ? j.machines.name : null).filter(Boolean))];
+      const mediaUsed = [...new Set(jobs.map((j) => j.media).filter(Boolean))];
+      const totalQuantity = jobs.reduce((sum, j) => sum + Number(j.quantity || 0), 0);
+
+      // Sqft / rolls / length-per-media are only computable for jobs that
+      // have a completed roll calculation (calculated_print_length set) -
+      // reused directly from print_records, nothing new stored.
+      const calcJobs = jobs.filter((j) => j.calculated_print_length != null);
+      const totalSqft = calcJobs.reduce((sum, j) => sum + (Number(j.roll_width || 0) * Number(j.calculated_print_length)), 0) * SQM_TO_SQFT;
+      const totalRolls = calcJobs.reduce((sum, j) => sum + Number(j.calculated_rolls || 0), 0);
+
+      const lengthByMedia = {};
+      calcJobs.forEach((j) => {
+        const key = j.media || 'Unspecified';
+        lengthByMedia[key] = (lengthByMedia[key] || 0) + Number(j.calculated_print_length);
+      });
+      const lengthUsedText = Object.entries(lengthByMedia)
+        .map(([media, len]) => `${media}: ${formatQuantity(len)} m`)
+        .join(', ') || '—';
+
+      return {
+        name: p.name, client: p.client_name, startDate, endDate,
+        machinesUsed: machinesUsed.join(', ') || '—',
+        totalQuantity,
+        mediaUsed: mediaUsed.join(', ') || '—',
+        totalSqft: calcJobs.length ? formatQuantity(totalSqft) : '—',
+        totalRolls: calcJobs.length ? formatQuantity(totalRolls) : '—',
+        lengthUsedText,
+      };
+    });
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td>${r.name}</td>
+        <td>${r.client}</td>
+        <td>${r.startDate}</td>
+        <td>${r.endDate}</td>
+        <td>${r.machinesUsed}</td>
+        <td>${r.totalQuantity}</td>
+        <td>${r.mediaUsed}</td>
+        <td>${r.totalSqft}</td>
+        <td>${r.totalRolls}</td>
+        <td>${r.lengthUsedText}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="10" class="log-empty">Could not load projects.</td></tr>';
+    console.error(err);
+  }
+}
+
 function formatQuantity(n) {
   const num = Number(n);
   return Number.isInteger(num) ? String(num) : num.toFixed(2);
@@ -894,12 +951,16 @@ function setView(view) {
   dashboardView.classList.add('is-hidden');
   inventoryView.classList.add('is-hidden');
   document.getElementById('view-print-records').classList.add('is-hidden');
-  document.getElementById('view-settings').classList.add('is-hidden');
+  document.getElementById('view-projects').classList.add('is-hidden');
   placeholderView.classList.add('is-hidden');
 
   if (view === 'dashboard') {
     dashboardView.classList.remove('is-hidden');
     title.textContent = 'Dashboard';
+  } else if (view === 'projects') {
+    document.getElementById('view-projects').classList.remove('is-hidden');
+    title.textContent = 'Projects';
+    loadProjectsView();
   } else if (view === 'inventory') {
     inventoryView.classList.remove('is-hidden');
     title.textContent = 'Inventory';
@@ -908,10 +969,6 @@ function setView(view) {
     document.getElementById('view-print-records').classList.remove('is-hidden');
     title.textContent = 'Print Records';
     initPrintRecordsView();
-  } else if (view === 'settings') {
-    document.getElementById('view-settings').classList.remove('is-hidden');
-    title.textContent = 'Settings';
-    renderOwnerDashboard();
   } else {
     placeholderView.classList.remove('is-hidden');
     title.textContent = MODULE_NAMES[view] || view;
@@ -926,6 +983,8 @@ document.querySelectorAll('.nav-item').forEach((item) => {
     setView(item.dataset.view);
   });
 });
+
+document.getElementById('projects-card-btn').addEventListener('click', () => setView('projects'));
 
 updateClock();
 setInterval(updateClock, 30000);
@@ -1284,153 +1343,3 @@ initIssuingForm();
 initConsumableForm();
 initConsumableIssueForm();
 initHistoryControls();
-
-// ---------------- Auth (Owner / Admin login, member management) ----------------
-
-const EDGE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/create-admin';
-const authState = { user: null, profile: null };
-
-function applyAuthUI() {
-  const loggedIn = !!authState.user;
-  const isWriter = authState.profile && (authState.profile.role === 'owner' || authState.profile.role === 'admin');
-
-  document.body.classList.toggle('read-only', !isWriter);
-  document.getElementById('login-open-btn').classList.toggle('is-hidden', loggedIn);
-  document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
-
-  if (loggedIn) {
-    document.getElementById('auth-user-email').textContent = authState.user.email;
-    document.getElementById('auth-user-role').textContent = authState.profile ? authState.profile.role : '';
-  }
-}
-
-async function refreshAuthState() {
-  const { data: { user } } = await db.auth.getUser();
-
-  if (!user) {
-    // Not logged in - this is the normal state for anonymous viewers,
-    // not an error to react to (calling signOut() here would trigger
-    // another auth-change event and loop forever).
-    authState.user = null;
-    authState.profile = null;
-    applyAuthUI();
-    return;
-  }
-
-  authState.user = user;
-  const { data: profile } = await db.from('profiles').select('role, must_change_password').eq('id', user.id).single();
-  authState.profile = profile || null;
-  if (profile && profile.must_change_password) {
-    document.getElementById('change-password-modal').classList.remove('is-hidden');
-  }
-  applyAuthUI();
-}
-
-function initAuth() {
-  const loginModal = document.getElementById('login-modal');
-  document.getElementById('login-open-btn').addEventListener('click', () => {
-    loginModal.classList.remove('is-hidden');
-  });
-  document.getElementById('login-cancel-btn').addEventListener('click', () => {
-    loginModal.classList.add('is-hidden');
-  });
-
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const { error } = await db.auth.signInWithPassword({ email, password });
-    if (error) {
-      setFormMessage('login-message', error.message, 'error');
-      return;
-    }
-    setFormMessage('login-message', '', null);
-    loginModal.classList.add('is-hidden');
-    document.getElementById('login-form').reset();
-    await refreshAuthState();
-  });
-
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    await db.auth.signOut();
-    await refreshAuthState();
-  });
-
-  document.getElementById('change-password-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newPassword = document.getElementById('new-password').value;
-    const { error } = await db.auth.updateUser({ password: newPassword });
-    if (error) {
-      setFormMessage('change-password-message', error.message, 'error');
-      return;
-    }
-    await db.from('profiles').update({ must_change_password: false }).eq('id', authState.user.id);
-    document.getElementById('change-password-modal').classList.add('is-hidden');
-    document.getElementById('change-password-form').reset();
-    await refreshAuthState();
-  });
-
-  document.getElementById('add-admin-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('admin-email').value.trim();
-    const password = document.getElementById('admin-password').value;
-    const submitBtn = e.target.querySelector('.btn-primary');
-    submitBtn.disabled = true;
-
-    try {
-      const { data: { session } } = await db.auth.getSession();
-      const res = await fetch(EDGE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setFormMessage('add-admin-message', data.error || 'Could not add admin.', 'error');
-        return;
-      }
-      setFormMessage('add-admin-message', `Added admin ${email}.`, 'success');
-      document.getElementById('add-admin-form').reset();
-      loadMembers();
-    } catch (err) {
-      setFormMessage('add-admin-message', 'Could not reach the server.', 'error');
-      console.error(err);
-    } finally {
-      submitBtn.disabled = false;
-    }
-  });
-
-  db.auth.onAuthStateChange(() => refreshAuthState());
-  refreshAuthState();
-}
-
-function renderOwnerDashboard() {
-  const isOwner = authState.profile && authState.profile.role === 'owner';
-  document.getElementById('owner-only-notice').classList.toggle('is-hidden', isOwner);
-  document.getElementById('owner-dashboard-content').classList.toggle('is-hidden', !isOwner);
-  if (isOwner) loadMembers();
-}
-
-async function loadMembers() {
-  const tbody = document.getElementById('members-table-body');
-  tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Loading…</td></tr>';
-  try {
-    const { data: rows, error } = await db.from('profiles').select('email, role, must_change_password').order('email');
-    if (error) throw error;
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="log-empty">No members yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = rows.map((r) => `
-      <tr>
-        <td>${r.email}</td>
-        <td>${r.role}</td>
-        <td>${r.must_change_password ? 'Yes' : 'No'}</td>
-      </tr>
-    `).join('');
-  } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Could not load members.</td></tr>';
-    console.error(err);
-  }
-}
-
-initAuth();
