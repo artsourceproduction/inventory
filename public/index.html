@@ -47,6 +47,10 @@
         <span class="nav-label">Settings</span>
         <span class="nav-tag">Phase 5</span>
       </a>
+      <a href="#machine-service" class="nav-item" data-view="machine-service">
+        <span class="nav-index">06</span>
+        <span class="nav-label">Machine Service History</span>
+      </a>
     </nav>
 
     <div class="sidebar-foot">
@@ -58,9 +62,12 @@
   <main class="main">
 
     <header class="topbar">
-      <div>
-        <h1 id="page-title">Dashboard</h1>
-        <p class="page-subtitle" id="company-name">The Art Source — Printing Department</p>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button type="button" id="back-btn" class="back-btn is-hidden" title="Back" aria-label="Back">←</button>
+        <div>
+          <h1 id="page-title">Dashboard</h1>
+          <p class="page-subtitle" id="company-name">The Art Source — Printing Department</p>
+        </div>
       </div>
       <div class="topbar-meta">
         <span id="clock">--:--</span>
@@ -601,6 +608,84 @@
 
     </section>
 
+    <section class="view is-hidden" id="view-machine-service">
+      <div class="panel inv-card">
+        <div class="panel-head">
+          <h2>Machine Service History</h2>
+          <span class="panel-note">Select a machine</span>
+        </div>
+        <div class="machine-select-grid">
+          <button type="button" class="machine-select-card" data-machine="Canon Colorado M5W" data-machine-code="COLORADO">Canon Colorado M5W</button>
+          <button type="button" class="machine-select-card" data-machine="Mimaki UCJV 330-160" data-machine-code="MIMAKI">Mimaki UCJV 330-160</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view is-hidden" id="view-machine-service-detail">
+      <div class="panel inv-card">
+        <div class="panel-head">
+          <h2 id="machine-service-detail-title">Machine Service History</h2>
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-secondary" id="export-service-pdf-btn">Export to PDF</button>
+            <button type="button" class="btn-primary" id="add-service-entry-btn">+ Add New Service Entry</button>
+          </div>
+        </div>
+
+        <form class="receiving-form is-hidden" id="service-entry-form">
+          <div class="field" style="flex: 1 1 100%;">
+            <label for="se-description">Service Details / Description *</label>
+            <input type="text" id="se-description" required>
+          </div>
+          <div class="field" style="flex: 1 1 100%;">
+            <label for="se-replaced-parts">Replaced Parts (optional)</label>
+            <input type="text" id="se-replaced-parts" placeholder="e.g. print head, wiper blade">
+          </div>
+          <div class="field">
+            <label for="se-engineer">Engineer Who Visited *</label>
+            <input type="text" id="se-engineer" required>
+          </div>
+          <div class="field">
+            <label for="se-requested-date">Requested Date (optional)</label>
+            <input type="date" id="se-requested-date">
+          </div>
+          <div class="field">
+            <label for="se-requested-time">Requested Time (optional)</label>
+            <input type="time" id="se-requested-time">
+          </div>
+          <div class="field">
+            <label for="se-started-date">Service Started Date *</label>
+            <input type="date" id="se-started-date" required>
+          </div>
+          <div class="field">
+            <label for="se-started-time">Service Started Time *</label>
+            <input type="time" id="se-started-time" required>
+          </div>
+          <div class="field">
+            <label for="se-ended-date">Service Ended Date *</label>
+            <input type="date" id="se-ended-date" required>
+          </div>
+          <div class="field">
+            <label for="se-ended-time">Service Ended Time *</label>
+            <input type="time" id="se-ended-time" required>
+          </div>
+          <div class="field field--action">
+            <button type="submit" class="btn-primary">Save Service Entry</button>
+          </div>
+        </form>
+        <p class="form-message" id="add-service-entry-message"></p>
+
+        <h3 style="font-size:13.5px; margin:16px 0 10px;">Service History</h3>
+        <table class="log-table" id="service-history-table">
+          <thead>
+            <tr><th>Started</th><th>Ended</th><th>Description</th><th>Replaced Parts</th><th>Engineer</th></tr>
+          </thead>
+          <tbody id="service-history-table-body">
+            <tr><td colspan="5" class="log-empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="view is-hidden" id="view-placeholder">
       <div class="placeholder">
         <span class="placeholder-index" id="placeholder-index">02</span>
@@ -612,6 +697,8 @@
   </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/js/supabaseClient.js"></script>
 <script src="/js/app.js"></script>

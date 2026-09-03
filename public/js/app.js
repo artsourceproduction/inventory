@@ -938,11 +938,22 @@ function initIssuingForm() {
 
 // ---------------- Nav / view switching ----------------
 
-function setView(view) {
+const viewHistory = [];
+let currentView = null;
+
+function setView(view, opts) {
+  opts = opts || {};
   const dashboardView = document.getElementById('view-dashboard');
   const inventoryView = document.getElementById('view-inventory');
   const placeholderView = document.getElementById('view-placeholder');
   const title = document.getElementById('page-title');
+  const backBtn = document.getElementById('back-btn');
+
+  if (!opts.isBack && currentView && currentView !== view) {
+    viewHistory.push(currentView);
+  }
+  currentView = view;
+  backBtn.classList.toggle('is-hidden', viewHistory.length === 0);
 
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.classList.toggle('is-active', item.dataset.view === view);
@@ -952,6 +963,8 @@ function setView(view) {
   inventoryView.classList.add('is-hidden');
   document.getElementById('view-print-records').classList.add('is-hidden');
   document.getElementById('view-projects').classList.add('is-hidden');
+  document.getElementById('view-machine-service').classList.add('is-hidden');
+  document.getElementById('view-machine-service-detail').classList.add('is-hidden');
   placeholderView.classList.add('is-hidden');
 
   if (view === 'dashboard') {
@@ -969,6 +982,14 @@ function setView(view) {
     document.getElementById('view-print-records').classList.remove('is-hidden');
     title.textContent = 'Print Records';
     initPrintRecordsView();
+  } else if (view === 'machine-service') {
+    document.getElementById('view-machine-service').classList.remove('is-hidden');
+    title.textContent = 'Machine Service History';
+  } else if (view === 'machine-service-detail') {
+    document.getElementById('view-machine-service-detail').classList.remove('is-hidden');
+    document.getElementById('machine-service-detail-title').textContent = opts.machineName || 'Machine Service History';
+    title.textContent = opts.machineName || 'Machine Service History';
+    if (opts.machineCode) loadMachineServiceHistory(opts.machineCode);
   } else {
     placeholderView.classList.remove('is-hidden');
     title.textContent = MODULE_NAMES[view] || view;
@@ -976,6 +997,198 @@ function setView(view) {
     document.getElementById('placeholder-index').textContent = MODULE_PHASE[view] || '';
   }
 }
+
+document.getElementById('back-btn').addEventListener('click', () => {
+  const prev = viewHistory.pop();
+  if (prev) setView(prev, { isBack: true });
+});
+
+document.querySelectorAll('.machine-select-card').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    setView('machine-service-detail', { machineName: btn.dataset.machine, machineCode: btn.dataset.machineCode });
+  });
+});
+
+const machineServiceState = { currentMachineId: null, currentMachineCode: null };
+
+async function loadMachineServiceHistory(machineCode) {
+  const tbody = document.getElementById('service-history-table-body');
+  tbody.innerHTML = '<tr><td colspan="5" class="log-empty">Loading…</td></tr>';
+  machineServiceState.currentMachineCode = machineCode;
+
+  try {
+    const { data: machine, error: mErr } = await db.from('machines').select('id').eq('code', machineCode).single();
+    if (mErr) throw mErr;
+    machineServiceState.currentMachineId = machine.id;
+
+    const { data: rows, error } = await db
+      .from('machine_service_records')
+      .select('started_at, ended_at, description, replaced_parts, engineer_name')
+      .eq('machine_id', machine.id)
+      .order('started_at', { ascending: false });
+    if (error) throw error;
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="log-empty">No service records yet for this machine.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td>${formatDateTime(r.started_at)}</td>
+        <td>${formatDateTime(r.ended_at)}</td>
+        <td>${r.description}</td>
+        <td>${r.replaced_parts || '—'}</td>
+        <td>${r.engineer_name}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="5" class="log-empty">Could not load service history.</td></tr>';
+    console.error(err);
+  }
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+document.getElementById('add-service-entry-btn').addEventListener('click', () => {
+  document.getElementById('service-entry-form').classList.toggle('is-hidden');
+});
+
+document.getElementById('export-service-pdf-btn').addEventListener('click', exportServiceHistoryToPDF);
+
+async function exportServiceHistoryToPDF() {
+  const btn = document.getElementById('export-service-pdf-btn');
+  const machineName = document.getElementById('machine-service-detail-title').textContent;
+
+  if (!machineServiceState.currentMachineId) {
+    setFormMessage('add-service-entry-message', 'Could not determine the selected machine.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Preparing PDF…';
+
+  try {
+    const { data: rows, error } = await db
+      .from('machine_service_records')
+      .select('description, replaced_parts, engineer_name, requested_at, started_at, ended_at')
+      .eq('machine_id', machineServiceState.currentMachineId)
+      .order('started_at', { ascending: false });
+    if (error) throw error;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+    doc.setFontSize(16);
+    doc.text('The Art Source — Printing Department', 40, 40);
+    doc.setFontSize(13);
+    doc.text(`Machine Service History — ${machineName}`, 40, 60);
+    doc.setFontSize(9);
+    doc.setTextColor(110);
+    doc.text(`Generated ${new Date().toLocaleString('en-GB')}`, 40, 76);
+    doc.setTextColor(0);
+
+    const body = rows.map((r) => [
+      formatDateTime(r.requested_at),
+      formatDateTime(r.started_at),
+      formatDateTime(r.ended_at),
+      r.description || '—',
+      r.replaced_parts || '—',
+      r.engineer_name || '—',
+    ]);
+
+    doc.autoTable({
+      startY: 92,
+      head: [['Requested', 'Started', 'Ended', 'Service Details', 'Replaced Parts', 'Engineer']],
+      body: body.length ? body : [['—', '—', '—', 'No service records for this machine.', '—', '—']],
+      styles: { fontSize: 9, cellPadding: 6, valign: 'top' },
+      headStyles: { fillColor: [44, 90, 160], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 244, 241] },
+      columnStyles: {
+        3: { cellWidth: 220 },
+        4: { cellWidth: 150 },
+      },
+    });
+
+    const fileName = `${machineName.replace(/\s+/g, '_')}_service_history.pdf`;
+    doc.save(fileName);
+  } catch (err) {
+    setFormMessage('add-service-entry-message', err.message || 'Could not generate PDF.', 'error');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+document.getElementById('service-entry-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const description = document.getElementById('se-description').value.trim();
+  const replacedParts = document.getElementById('se-replaced-parts').value.trim();
+  const engineer = document.getElementById('se-engineer').value.trim();
+  const requestedDate = document.getElementById('se-requested-date').value;
+  const requestedTime = document.getElementById('se-requested-time').value;
+  const startedDate = document.getElementById('se-started-date').value;
+  const startedTime = document.getElementById('se-started-time').value;
+  const endedDate = document.getElementById('se-ended-date').value;
+  const endedTime = document.getElementById('se-ended-time').value;
+
+  const errors = [];
+  if (!description) errors.push('Enter service details/description.');
+  if (!engineer) errors.push('Enter the engineer who visited.');
+  if (!startedDate || !startedTime) errors.push('Enter the date and time service started.');
+  if (!endedDate || !endedTime) errors.push('Enter the date and time service ended.');
+
+  const startedAt = startedDate && startedTime ? `${startedDate}T${startedTime}:00` : null;
+  const endedAt = endedDate && endedTime ? `${endedDate}T${endedTime}:00` : null;
+  if (startedAt && endedAt && endedAt < startedAt) {
+    errors.push('Service ended time must not be before service started time.');
+  }
+
+  if (errors.length) {
+    setFormMessage('add-service-entry-message', errors.join(' '), 'error');
+    return;
+  }
+
+  if (!machineServiceState.currentMachineId) {
+    setFormMessage('add-service-entry-message', 'Could not determine the selected machine.', 'error');
+    return;
+  }
+
+  const submitBtn = e.target.querySelector('.btn-primary');
+  submitBtn.disabled = true;
+
+  try {
+    const requestedAt = requestedDate && requestedTime ? `${requestedDate}T${requestedTime}:00` : null;
+
+    const { error } = await db.from('machine_service_records').insert({
+      machine_id: machineServiceState.currentMachineId,
+      description,
+      replaced_parts: replacedParts || null,
+      engineer_name: engineer,
+      requested_at: requestedAt,
+      started_at: startedAt,
+      ended_at: endedAt,
+    });
+    if (error) throw error;
+
+    setFormMessage('add-service-entry-message', 'Service entry saved.', 'success');
+    e.target.reset();
+    e.target.classList.add('is-hidden');
+    if (machineServiceState.currentMachineCode) loadMachineServiceHistory(machineServiceState.currentMachineCode);
+  } catch (err) {
+    setFormMessage('add-service-entry-message', err.message || 'Could not save entry.', 'error');
+    console.error(err);
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
 
 document.querySelectorAll('.nav-item').forEach((item) => {
   item.addEventListener('click', (e) => {
