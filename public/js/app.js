@@ -1583,8 +1583,13 @@ function applyAuthUI() {
   document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
 
   if (loggedIn) {
-    document.getElementById('auth-user-email').textContent = authState.user.email;
-    document.getElementById('auth-user-role').textContent = authState.profile ? authState.profile.role : '';
+    const displayName = (authState.profile && authState.profile.name) || authState.user.email;
+    document.getElementById('auth-user-email').textContent = displayName;
+
+    const role = authState.profile ? authState.profile.role : '';
+    const showRole = role === 'owner' || role === 'admin';
+    document.getElementById('auth-user-role').textContent = showRole ? role : '';
+    document.getElementById('auth-user-role-wrap').classList.toggle('is-hidden', !showRole);
   }
 }
 
@@ -1644,9 +1649,19 @@ function initAuth() {
   // pre-existing account that still has must_change_password = true.
   document.getElementById('set-password-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const name = document.getElementById('set-name').value.trim();
+    const designation = document.getElementById('set-designation').value.trim();
     const p1 = document.getElementById('set-password-1').value;
     const p2 = document.getElementById('set-password-2').value;
 
+    if (!name) {
+      setFormMessage('set-password-message', 'Enter your name.', 'error');
+      return;
+    }
+    if (!designation) {
+      setFormMessage('set-password-message', 'Enter your designation.', 'error');
+      return;
+    }
     if (p1 !== p2) {
       setFormMessage('set-password-message', 'Passwords do not match.', 'error');
       return;
@@ -1661,7 +1676,7 @@ function initAuth() {
       setFormMessage('set-password-message', error.message, 'error');
       return;
     }
-    await db.from('profiles').update({ must_change_password: false }).eq('id', authState.user.id);
+    await db.from('profiles').update({ name, designation, must_change_password: false }).eq('id', authState.user.id);
     document.getElementById('set-password-modal').classList.add('is-hidden');
     document.getElementById('set-password-form').reset();
     await refreshAuthState();

@@ -56,7 +56,7 @@
       <button type="button" class="btn-secondary" id="login-open-btn" style="width:100%;">Log In</button>
       <div id="logged-in-info" class="is-hidden">
         <div style="font-size:11.5px;color:#bdc1c8;margin-bottom:6px;">
-          <span id="auth-user-email"></span> · <span id="auth-user-role"></span>
+          <span id="auth-user-email"></span><span id="auth-user-role-wrap"> · <span id="auth-user-role"></span></span>
         </div>
         <button type="button" class="btn-secondary" id="logout-btn" style="width:100%;">Log Out</button>
       </div>
@@ -768,9 +768,17 @@
 
 <div class="modal-overlay is-hidden" id="set-password-modal">
   <div class="modal-box">
-    <h2>Set Your Password</h2>
-    <p style="font-size:12.5px;color:var(--ink-600);">You must set a password before continuing.</p>
+    <h2>Complete Your Account</h2>
+    <p style="font-size:12.5px;color:var(--ink-600);">Set your name, designation, and password before continuing.</p>
     <form id="set-password-form">
+      <div class="field">
+        <label for="set-name">Name</label>
+        <input type="text" id="set-name" required>
+      </div>
+      <div class="field">
+        <label for="set-designation">Designation</label>
+        <input type="text" id="set-designation" required>
+      </div>
       <div class="field">
         <label for="set-password-1">New Password</label>
         <input type="password" id="set-password-1" minlength="6" required>
@@ -780,7 +788,7 @@
         <input type="password" id="set-password-2" minlength="6" required>
       </div>
       <p class="form-message" id="set-password-message"></p>
-      <button type="submit" class="btn-primary">Set Password &amp; Continue</button>
+      <button type="submit" class="btn-primary">Save &amp; Continue</button>
     </form>
   </div>
 </div>
