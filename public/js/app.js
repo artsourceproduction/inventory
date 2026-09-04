@@ -1691,21 +1691,45 @@ function initAuth() {
 
     try {
       const { data: { session } } = await db.auth.getSession();
+      if (!session) {
+        setFormMessage('create-member-message', 'You are not logged in - please log in again.', 'error');
+        return;
+      }
+
+      // Supabase's gateway expects the anon key on the 'apikey' header
+      // for routing/quota purposes, separate from the Authorization
+      // bearer token (which identifies the logged-in caller). Missing
+      // this header can cause the request to be rejected before it
+      // ever reaches the function code.
       const res = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ email, role, redirectTo: window.location.origin }),
       });
-      const data = await res.json();
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        setFormMessage('create-member-message', `Server returned an unreadable response (HTTP ${res.status}). Check the create-member function is deployed and named exactly "create-member".`, 'error');
+        return;
+      }
+
       if (!res.ok) {
-        setFormMessage('create-member-message', data.error || 'Could not create account.', 'error');
+        setFormMessage('create-member-message', data.error || `Could not create account (HTTP ${res.status}).`, 'error');
         return;
       }
       setFormMessage('create-member-message', `Invited ${email} as ${role}. They'll receive an email to set their password.`, 'success');
       e.target.reset();
       loadMembers();
     } catch (err) {
-      setFormMessage('create-member-message', 'Could not reach the server.', 'error');
+      // Surface the real browser-level error instead of a vague generic
+      // message, so the actual cause is visible without opening DevTools.
+      setFormMessage('create-member-message', `Request failed: ${err.message}`, 'error');
       console.error(err);
     } finally {
       submitBtn.disabled = false;
