@@ -965,6 +965,7 @@ function setView(view, opts) {
   document.getElementById('view-projects').classList.add('is-hidden');
   document.getElementById('view-machine-service').classList.add('is-hidden');
   document.getElementById('view-machine-service-detail').classList.add('is-hidden');
+  document.getElementById('view-settings').classList.add('is-hidden');
   placeholderView.classList.add('is-hidden');
 
   if (view === 'dashboard') {
@@ -990,6 +991,10 @@ function setView(view, opts) {
     document.getElementById('machine-service-detail-title').textContent = opts.machineName || 'Machine Service History';
     title.textContent = opts.machineName || 'Machine Service History';
     if (opts.machineCode) loadMachineServiceHistory(opts.machineCode);
+  } else if (view === 'settings') {
+    document.getElementById('view-settings').classList.remove('is-hidden');
+    title.textContent = 'Settings';
+    renderAccountManagement();
   } else {
     placeholderView.classList.remove('is-hidden');
     title.textContent = MODULE_NAMES[view] || view;
@@ -1015,6 +1020,13 @@ async function loadMachineServiceHistory(machineCode) {
   const tbody = document.getElementById('service-history-table-body');
   tbody.innerHTML = '<tr><td colspan="5" class="log-empty">Loading…</td></tr>';
   machineServiceState.currentMachineCode = machineCode;
+
+  // Reset the entry form when switching machines - it's one shared form
+  // element, so leftover typed values would otherwise carry over to
+  // whichever machine is opened next.
+  document.getElementById('service-entry-form').reset();
+  document.getElementById('service-entry-form').classList.add('is-hidden');
+  setFormMessage('add-service-entry-message', '', null);
 
   try {
     const { data: machine, error: mErr } = await db.from('machines').select('id').eq('code', machineCode).single();
@@ -1556,3 +1568,173 @@ initIssuingForm();
 initConsumableForm();
 initConsumableIssueForm();
 initHistoryControls();
+
+// ---------------- Auth (Part 3: login + account creation) ----------------
+
+const EDGE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/create-member';
+const authState = { user: null, profile: null };
+
+function applyAuthUI() {
+  const loggedIn = !!authState.user;
+  const canEdit = authState.profile && authState.profile.role !== 'viewer';
+
+  document.body.classList.toggle('read-only', !canEdit);
+  document.getElementById('login-open-btn').classList.toggle('is-hidden', loggedIn);
+  document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
+
+  if (loggedIn) {
+    document.getElementById('auth-user-email').textContent = authState.user.email;
+    document.getElementById('auth-user-role').textContent = authState.profile ? authState.profile.role : '';
+  }
+}
+
+async function refreshAuthState() {
+  // getSession() (not getUser()) - it doesn't error for an anonymous
+  // visitor, just returns null. getUser() errors in that normal case,
+  // which previously caused problems reacting to it.
+  const { data: { session } } = await db.auth.getSession();
+
+  if (!session) {
+    authState.user = null;
+    authState.profile = null;
+    applyAuthUI();
+    return;
+  }
+
+  authState.user = session.user;
+  const { data: profile } = await db.from('profiles').select('role, must_change_password').eq('id', session.user.id).single();
+  authState.profile = profile || null;
+
+  if (profile && profile.must_change_password) {
+    document.getElementById('set-password-modal').classList.remove('is-hidden');
+  }
+  applyAuthUI();
+}
+
+function initAuth() {
+  const loginModal = document.getElementById('login-modal');
+  document.getElementById('login-open-btn').addEventListener('click', () => {
+    loginModal.classList.remove('is-hidden');
+  });
+  document.getElementById('login-cancel-btn').addEventListener('click', () => {
+    loginModal.classList.add('is-hidden');
+  });
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if (error) {
+      setFormMessage('login-message', error.message, 'error');
+      return;
+    }
+    setFormMessage('login-message', '', null);
+    loginModal.classList.add('is-hidden');
+    document.getElementById('login-form').reset();
+    await refreshAuthState();
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await db.auth.signOut();
+    await refreshAuthState();
+  });
+
+  // Triggered either by an invited person's first login, or by a
+  // pre-existing account that still has must_change_password = true.
+  document.getElementById('set-password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const p1 = document.getElementById('set-password-1').value;
+    const p2 = document.getElementById('set-password-2').value;
+
+    if (p1 !== p2) {
+      setFormMessage('set-password-message', 'Passwords do not match.', 'error');
+      return;
+    }
+    if (p1.length < 6) {
+      setFormMessage('set-password-message', 'Password must be at least 6 characters.', 'error');
+      return;
+    }
+
+    const { error } = await db.auth.updateUser({ password: p1 });
+    if (error) {
+      setFormMessage('set-password-message', error.message, 'error');
+      return;
+    }
+    await db.from('profiles').update({ must_change_password: false }).eq('id', authState.user.id);
+    document.getElementById('set-password-modal').classList.add('is-hidden');
+    document.getElementById('set-password-form').reset();
+    await refreshAuthState();
+  });
+
+  document.getElementById('create-member-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('member-email').value.trim();
+    const role = authState.profile.role === 'owner' ? document.getElementById('member-role').value : 'user';
+    const submitBtn = e.target.querySelector('.btn-primary');
+    submitBtn.disabled = true;
+
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      const res = await fetch(EDGE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ email, role, redirectTo: window.location.origin }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormMessage('create-member-message', data.error || 'Could not create account.', 'error');
+        return;
+      }
+      setFormMessage('create-member-message', `Invited ${email} as ${role}. They'll receive an email to set their password.`, 'success');
+      e.target.reset();
+      loadMembers();
+    } catch (err) {
+      setFormMessage('create-member-message', 'Could not reach the server.', 'error');
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  db.auth.onAuthStateChange(() => refreshAuthState());
+  refreshAuthState();
+}
+
+function renderAccountManagement() {
+  const canManage = authState.profile && (authState.profile.role === 'owner' || authState.profile.role === 'admin');
+  document.getElementById('not-logged-in-notice').classList.toggle('is-hidden', canManage);
+  document.getElementById('account-mgmt-content').classList.toggle('is-hidden', !canManage);
+  if (!canManage) return;
+
+  // Only the Owner may choose the role; an Admin can only ever create
+  // Users, so the picker is hidden and the form always sends 'user'.
+  document.getElementById('member-role-field').classList.toggle('is-hidden', authState.profile.role !== 'owner');
+
+  loadMembers();
+}
+
+async function loadMembers() {
+  const tbody = document.getElementById('members-table-body');
+  tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Loading…</td></tr>';
+  try {
+    const { data: rows, error } = await db.from('profiles').select('email, role, must_change_password').order('email');
+    if (error) throw error;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="log-empty">No members yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td>${r.email}</td>
+        <td>${r.role}</td>
+        <td>${r.must_change_password ? 'Not yet' : 'Yes'}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Could not load members.</td></tr>';
+    console.error(err);
+  }
+}
+
+initAuth();

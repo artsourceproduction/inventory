@@ -42,10 +42,9 @@
         <span class="nav-label">Reports</span>
         <span class="nav-tag">Phase 4</span>
       </a>
-      <a href="#settings" class="nav-item is-disabled" data-view="settings">
+      <a href="#settings" class="nav-item" data-view="settings">
         <span class="nav-index">05</span>
         <span class="nav-label">Settings</span>
-        <span class="nav-tag">Phase 5</span>
       </a>
       <a href="#machine-service" class="nav-item" data-view="machine-service">
         <span class="nav-index">06</span>
@@ -53,6 +52,15 @@
       </a>
     </nav>
 
+    <div class="sidebar-foot" id="auth-area">
+      <button type="button" class="btn-secondary" id="login-open-btn" style="width:100%;">Log In</button>
+      <div id="logged-in-info" class="is-hidden">
+        <div style="font-size:11.5px;color:#bdc1c8;margin-bottom:6px;">
+          <span id="auth-user-email"></span> · <span id="auth-user-role"></span>
+        </div>
+        <button type="button" class="btn-secondary" id="logout-btn" style="width:100%;">Log Out</button>
+      </div>
+    </div>
     <div class="sidebar-foot">
       <span class="status-dot" id="server-status-dot"></span>
       <span id="server-status-text">Checking server…</span>
@@ -686,6 +694,46 @@
       </div>
     </section>
 
+    <section class="view is-hidden" id="view-settings">
+      <div class="panel inv-card">
+        <div class="panel-head">
+          <h2>Settings — Account Management</h2>
+          <span class="panel-note">Create Admin/User accounts and see who has access</span>
+        </div>
+
+        <div id="not-logged-in-notice" class="is-hidden">
+          <p class="log-empty">Log in to manage accounts.</p>
+        </div>
+
+        <div id="account-mgmt-content" class="is-hidden">
+          <form class="receiving-form" id="create-member-form">
+            <div class="field">
+              <label for="member-email">Email Address</label>
+              <input type="email" id="member-email" required>
+            </div>
+            <div class="field" id="member-role-field">
+              <label for="member-role">Role</label>
+              <select id="member-role">
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+            <div class="field field--action">
+              <button type="submit" class="btn-primary">Create Account</button>
+            </div>
+          </form>
+          <p class="form-message" id="create-member-message"></p>
+
+          <table class="log-table" id="members-table" style="margin-top:20px;">
+            <thead><tr><th>Email</th><th>Role</th><th>Password Set</th></tr></thead>
+            <tbody id="members-table-body">
+              <tr><td colspan="3" class="log-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="view is-hidden" id="view-placeholder">
       <div class="placeholder">
         <span class="placeholder-index" id="placeholder-index">02</span>
@@ -695,6 +743,46 @@
     </section>
 
   </main>
+</div>
+
+<div class="modal-overlay is-hidden" id="login-modal">
+  <div class="modal-box">
+    <h2>Log In</h2>
+    <form id="login-form">
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required>
+      </div>
+      <p class="form-message" id="login-message"></p>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button type="submit" class="btn-primary">Log In</button>
+        <button type="button" class="btn-secondary" id="login-cancel-btn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay is-hidden" id="set-password-modal">
+  <div class="modal-box">
+    <h2>Set Your Password</h2>
+    <p style="font-size:12.5px;color:var(--ink-600);">You must set a password before continuing.</p>
+    <form id="set-password-form">
+      <div class="field">
+        <label for="set-password-1">New Password</label>
+        <input type="password" id="set-password-1" minlength="6" required>
+      </div>
+      <div class="field">
+        <label for="set-password-2">Confirm New Password</label>
+        <input type="password" id="set-password-2" minlength="6" required>
+      </div>
+      <p class="form-message" id="set-password-message"></p>
+      <button type="submit" class="btn-primary">Set Password &amp; Continue</button>
+    </form>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
