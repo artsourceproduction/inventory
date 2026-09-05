@@ -1753,25 +1753,68 @@ function renderAccountManagement() {
   loadMembers();
 }
 
+const REMOVE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/remove-member';
+
 async function loadMembers() {
   const tbody = document.getElementById('members-table-body');
-  tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Loading…</td></tr>';
   try {
-    const { data: rows, error } = await db.from('profiles').select('email, role, must_change_password').order('email');
+    const { data: rows, error } = await db.from('profiles').select('id, email, role, managed_by, must_change_password').order('email');
     if (error) throw error;
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="log-empty">No members yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="log-empty">No members yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map((r) => `
-      <tr>
-        <td>${r.email}</td>
-        <td>${r.role}</td>
-        <td>${r.must_change_password ? 'Not yet' : 'Yes'}</td>
-      </tr>
-    `).join('');
+
+    const myId = authState.user.id;
+    const myRole = authState.profile.role;
+
+    tbody.innerHTML = rows.map((r) => {
+      const canRemove = r.id !== myId && r.role !== 'owner' &&
+        (myRole === 'owner' || (myRole === 'admin' && r.role === 'user' && r.managed_by === myId));
+
+      return `
+        <tr>
+          <td>${r.email}</td>
+          <td>${r.role}</td>
+          <td>${r.must_change_password ? 'Not yet' : 'Yes'}</td>
+          <td>${canRemove ? `<button type="button" class="btn-secondary remove-member-btn" data-id="${r.id}" data-email="${r.email}">Remove</button>` : '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    document.querySelectorAll('.remove-member-btn').forEach((btn) => {
+      btn.addEventListener('click', () => removeMember(btn.dataset.id, btn.dataset.email));
+    });
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Could not load members.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Could not load members.</td></tr>';
+    console.error(err);
+  }
+}
+
+async function removeMember(targetId, email) {
+  if (!confirm(`Remove ${email}? This cannot be undone.`)) return;
+
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    const res = await fetch(REMOVE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ target_id: targetId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setFormMessage('create-member-message', data.error || `Could not remove account (HTTP ${res.status}).`, 'error');
+      return;
+    }
+    setFormMessage('create-member-message', `Removed ${email}.`, 'success');
+    loadMembers();
+  } catch (err) {
+    setFormMessage('create-member-message', `Request failed: ${err.message}`, 'error');
     console.error(err);
   }
 }
