@@ -42,9 +42,9 @@
         <span class="nav-label">Reports</span>
         <span class="nav-tag">Phase 4</span>
       </a>
-      <a href="#settings" class="nav-item" data-view="settings">
+      <a href="#settings" class="nav-item is-hidden" data-view="settings" id="settings-nav-item">
         <span class="nav-index">05</span>
-        <span class="nav-label">Settings</span>
+        <span class="nav-label">Account Management</span>
       </a>
       <a href="#machine-service" class="nav-item" data-view="machine-service">
         <span class="nav-index">06</span>
@@ -74,7 +74,6 @@
         <button type="button" id="back-btn" class="back-btn is-hidden" title="Back" aria-label="Back">←</button>
         <div>
           <h1 id="page-title">Dashboard</h1>
-          <p class="page-subtitle" id="company-name">The Art Source — Printing Department</p>
         </div>
       </div>
       <div class="topbar-meta">
@@ -697,16 +696,16 @@
     <section class="view is-hidden" id="view-settings">
       <div class="panel inv-card">
         <div class="panel-head">
-          <h2>Settings — Account Management</h2>
-          <span class="panel-note">Create Admin/User accounts and see who has access</span>
+          <h2>Account Management</h2>
+          <button type="button" class="btn-primary" id="create-account-toggle-btn">+ Create Account</button>
         </div>
 
         <div id="not-logged-in-notice" class="is-hidden">
-          <p class="log-empty">Log in to manage accounts.</p>
+          <p class="log-empty">You do not have access to Account Management.</p>
         </div>
 
         <div id="account-mgmt-content" class="is-hidden">
-          <form class="receiving-form" id="create-member-form">
+          <form class="receiving-form is-hidden" id="create-member-form">
             <div class="field">
               <label for="member-email">Email Address</label>
               <input type="email" id="member-email" required>
@@ -725,14 +724,30 @@
           <p class="form-message" id="create-member-message"></p>
 
           <table class="log-table" id="members-table" style="margin-top:20px;">
-            <thead><tr><th>Email</th><th>Role</th><th>Password Set</th><th>Action</th></tr></thead>
+            <thead><tr><th>Email</th><th>Role</th><th>Password Set</th></tr></thead>
             <tbody id="members-table-body">
-              <tr><td colspan="4" class="log-empty">Loading…</td></tr>
+              <tr><td colspan="3" class="log-empty">Loading…</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </section>
+
+    <div class="modal-overlay is-hidden" id="account-details-modal">
+      <div class="modal-box">
+        <h2>Account Details</h2>
+        <div style="font-size:13.5px; line-height:1.9; margin-bottom:16px;">
+          <div><strong>Name:</strong> <span id="ad-name"></span></div>
+          <div><strong>Email:</strong> <span id="ad-email"></span></div>
+          <div><strong>Role:</strong> <span id="ad-role"></span></div>
+        </div>
+        <p class="form-message" id="account-details-message"></p>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn-secondary" id="account-details-close-btn">Close</button>
+          <button type="button" id="account-details-remove-btn" class="is-hidden" style="background:#c0221a; color:#fff; border:none; border-radius:7px; padding:10px 18px; font-weight:600; cursor:pointer;">Remove Account</button>
+        </div>
+      </div>
+    </div>
 
     <section class="view is-hidden" id="view-placeholder">
       <div class="placeholder">

@@ -33,12 +33,6 @@ async function loadDashboard() {
   const statusText = document.getElementById('server-status-text');
 
   try {
-    const { data: settingsRows, error: settingsErr } = await db
-      .from('settings').select('key, value').eq('key', 'company_name');
-    if (settingsErr) throw settingsErr;
-    const companyName = settingsRows[0] ? settingsRows[0].value : 'The Art Source - Printing Department';
-    document.getElementById('company-name').textContent = companyName;
-
     const { count: projectCount, error: countErr } = await db
       .from('projects').select('*', { count: 'exact', head: true });
     if (countErr) throw countErr;
@@ -1577,10 +1571,12 @@ const authState = { user: null, profile: null };
 function applyAuthUI() {
   const loggedIn = !!authState.user;
   const canEdit = authState.profile && authState.profile.role !== 'viewer';
+  const isOwnerOrAdmin = authState.profile && (authState.profile.role === 'owner' || authState.profile.role === 'admin');
 
   document.body.classList.toggle('read-only', !canEdit);
   document.getElementById('login-open-btn').classList.toggle('is-hidden', loggedIn);
   document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
+  document.getElementById('settings-nav-item').classList.toggle('is-hidden', !isOwnerOrAdmin);
 
   if (loggedIn) {
     const displayName = (authState.profile && authState.profile.name) || authState.user.email;
@@ -1682,6 +1678,18 @@ function initAuth() {
     await refreshAuthState();
   });
 
+  document.getElementById('create-account-toggle-btn').addEventListener('click', () => {
+    document.getElementById('create-member-form').classList.toggle('is-hidden');
+  });
+
+  document.getElementById('account-details-close-btn').addEventListener('click', () => {
+    document.getElementById('account-details-modal').classList.add('is-hidden');
+  });
+
+  document.getElementById('account-details-remove-btn').addEventListener('click', () => {
+    removeMember(accountDetailsState.targetId, accountDetailsState.targetEmail);
+  });
+
   document.getElementById('create-member-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('member-email').value.trim();
@@ -1725,6 +1733,7 @@ function initAuth() {
       }
       setFormMessage('create-member-message', `Invited ${email} as ${role}. They'll receive an email to set their password.`, 'success');
       e.target.reset();
+      e.target.classList.add('is-hidden');
       loadMembers();
     } catch (err) {
       // Surface the real browser-level error instead of a vague generic
@@ -1755,41 +1764,52 @@ function renderAccountManagement() {
 
 const REMOVE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/remove-member';
 
+const accountDetailsState = { targetId: null, targetEmail: null };
+
 async function loadMembers() {
   const tbody = document.getElementById('members-table-body');
-  tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Loading…</td></tr>';
   try {
-    const { data: rows, error } = await db.from('profiles').select('id, email, role, managed_by, must_change_password').order('email');
+    const { data: rows, error } = await db.from('profiles').select('id, name, email, role, managed_by, must_change_password').order('email');
     if (error) throw error;
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="log-empty">No members yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="log-empty">No members yet.</td></tr>';
       return;
     }
 
-    const myId = authState.user.id;
-    const myRole = authState.profile.role;
+    tbody.innerHTML = rows.map((r) => `
+      <tr data-id="${r.id}" data-name="${r.name || ''}" data-email="${r.email}" data-role="${r.role}" data-managed-by="${r.managed_by || ''}">
+        <td>${r.email}</td>
+        <td>${r.role}</td>
+        <td>${r.must_change_password ? 'Not yet' : 'Yes'}</td>
+      </tr>
+    `).join('');
 
-    tbody.innerHTML = rows.map((r) => {
-      const canRemove = r.id !== myId && r.role !== 'owner' &&
-        (myRole === 'owner' || (myRole === 'admin' && r.role === 'user' && r.managed_by === myId));
-
-      return `
-        <tr>
-          <td>${r.email}</td>
-          <td>${r.role}</td>
-          <td>${r.must_change_password ? 'Not yet' : 'Yes'}</td>
-          <td>${canRemove ? `<button type="button" class="btn-secondary remove-member-btn" data-id="${r.id}" data-email="${r.email}">Remove</button>` : '—'}</td>
-        </tr>
-      `;
-    }).join('');
-
-    document.querySelectorAll('.remove-member-btn').forEach((btn) => {
-      btn.addEventListener('click', () => removeMember(btn.dataset.id, btn.dataset.email));
+    document.querySelectorAll('#members-table-body tr').forEach((row) => {
+      row.addEventListener('click', () => openAccountDetails(row.dataset));
     });
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Could not load members.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Could not load members.</td></tr>';
     console.error(err);
   }
+}
+
+function openAccountDetails(data) {
+  accountDetailsState.targetId = data.id;
+  accountDetailsState.targetEmail = data.email;
+
+  document.getElementById('ad-name').textContent = data.name || '—';
+  document.getElementById('ad-email').textContent = data.email;
+  document.getElementById('ad-role').textContent = data.role;
+  setFormMessage('account-details-message', '', null);
+
+  const myId = authState.user.id;
+  const myRole = authState.profile.role;
+  const canRemove = data.id !== myId && data.role !== 'owner' &&
+    (myRole === 'owner' || (myRole === 'admin' && data.role === 'user' && data.managedBy === myId));
+
+  document.getElementById('account-details-remove-btn').classList.toggle('is-hidden', !canRemove);
+  document.getElementById('account-details-modal').classList.remove('is-hidden');
 }
 
 async function removeMember(targetId, email) {
@@ -1808,13 +1828,14 @@ async function removeMember(targetId, email) {
     });
     const data = await res.json();
     if (!res.ok) {
-      setFormMessage('create-member-message', data.error || `Could not remove account (HTTP ${res.status}).`, 'error');
+      setFormMessage('account-details-message', data.error || `Could not remove account (HTTP ${res.status}).`, 'error');
       return;
     }
+    document.getElementById('account-details-modal').classList.add('is-hidden');
     setFormMessage('create-member-message', `Removed ${email}.`, 'success');
     loadMembers();
   } catch (err) {
-    setFormMessage('create-member-message', `Request failed: ${err.message}`, 'error');
+    setFormMessage('account-details-message', `Request failed: ${err.message}`, 'error');
     console.error(err);
   }
 }
