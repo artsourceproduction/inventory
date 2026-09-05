@@ -1571,7 +1571,7 @@ initHistoryControls();
 
 // ---------------- Auth (Part 3: login + account creation) ----------------
 
-const EDGE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/create-member';
+const EDGE_FUNCTION_URL = 'https://cmorisybgmuxhcufnqsz.supabase.co/functions/v1/clever-service';
 const authState = { user: null, profile: null };
 
 function applyAuthUI() {
