@@ -501,21 +501,6 @@ tr.is-depleted td:nth-child(4) { font-weight: 600; }
   .main { padding: 24px; }
 }
 
-/* ---- Back button (subtle, Edge-style) ---- */
-.back-btn {
-  width: 30px; height: 30px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 7px;
-  color: var(--ink-600);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.back-btn:hover { background: var(--paper); color: var(--ink-900); }
-
 /* ---- Machine Service History: machine selection ---- */
 .machine-select-grid {
   display: grid;

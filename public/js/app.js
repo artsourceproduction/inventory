@@ -932,22 +932,12 @@ function initIssuingForm() {
 
 // ---------------- Nav / view switching ----------------
 
-const viewHistory = [];
-let currentView = null;
-
 function setView(view, opts) {
   opts = opts || {};
   const dashboardView = document.getElementById('view-dashboard');
   const inventoryView = document.getElementById('view-inventory');
   const placeholderView = document.getElementById('view-placeholder');
   const title = document.getElementById('page-title');
-  const backBtn = document.getElementById('back-btn');
-
-  if (!opts.isBack && currentView && currentView !== view) {
-    viewHistory.push(currentView);
-  }
-  currentView = view;
-  backBtn.classList.toggle('is-hidden', viewHistory.length === 0);
 
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.classList.toggle('is-active', item.dataset.view === view);
@@ -987,7 +977,7 @@ function setView(view, opts) {
     if (opts.machineCode) loadMachineServiceHistory(opts.machineCode);
   } else if (view === 'settings') {
     document.getElementById('view-settings').classList.remove('is-hidden');
-    title.textContent = 'Settings';
+    title.textContent = 'Account Management';
     renderAccountManagement();
   } else {
     placeholderView.classList.remove('is-hidden');
@@ -996,11 +986,6 @@ function setView(view, opts) {
     document.getElementById('placeholder-index').textContent = MODULE_PHASE[view] || '';
   }
 }
-
-document.getElementById('back-btn').addEventListener('click', () => {
-  const prev = viewHistory.pop();
-  if (prev) setView(prev, { isBack: true });
-});
 
 document.querySelectorAll('.machine-select-card').forEach((btn) => {
   btn.addEventListener('click', () => {
