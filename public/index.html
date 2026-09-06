@@ -26,28 +26,22 @@
 
     <nav class="nav">
       <a href="#dashboard" class="nav-item is-active" data-view="dashboard">
-        <span class="nav-index">01</span>
         <span class="nav-label">Dashboard</span>
       </a>
       <a href="#print-records" class="nav-item" data-view="print-records">
-        <span class="nav-index">02</span>
         <span class="nav-label">Print Records</span>
       </a>
       <a href="#inventory" class="nav-item" data-view="inventory">
-        <span class="nav-index">03</span>
         <span class="nav-label">Inventory</span>
       </a>
       <a href="#reports" class="nav-item is-disabled" data-view="reports">
-        <span class="nav-index">04</span>
         <span class="nav-label">Reports</span>
         <span class="nav-tag">Phase 4</span>
       </a>
       <a href="#settings" class="nav-item is-hidden" data-view="settings" id="settings-nav-item">
-        <span class="nav-index">05</span>
         <span class="nav-label">Account Management</span>
       </a>
       <a href="#machine-service" class="nav-item" data-view="machine-service">
-        <span class="nav-index">06</span>
         <span class="nav-label">Machine Service History</span>
       </a>
     </nav>
@@ -697,7 +691,6 @@
       <div class="panel inv-card">
         <div class="panel-head">
           <h2>Account Management</h2>
-          <button type="button" class="btn-primary" id="create-account-toggle-btn">+ Create Account</button>
         </div>
 
         <div id="not-logged-in-notice" class="is-hidden">
@@ -705,7 +698,7 @@
         </div>
 
         <div id="account-mgmt-content" class="is-hidden">
-          <form class="receiving-form is-hidden" id="create-member-form">
+          <form class="receiving-form" id="create-member-form">
             <div class="field">
               <label for="member-email">Email Address</label>
               <input type="email" id="member-email" required>
@@ -724,9 +717,9 @@
           <p class="form-message" id="create-member-message"></p>
 
           <table class="log-table" id="members-table" style="margin-top:20px;">
-            <thead><tr><th>Email</th><th>Role</th><th>Password Set</th></tr></thead>
+            <thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th></tr></thead>
             <tbody id="members-table-body">
-              <tr><td colspan="3" class="log-empty">Loading…</td></tr>
+              <tr><td colspan="4" class="log-empty">Loading…</td></tr>
             </tbody>
           </table>
         </div>

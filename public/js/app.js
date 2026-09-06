@@ -1678,9 +1678,6 @@ function initAuth() {
     await refreshAuthState();
   });
 
-  document.getElementById('create-account-toggle-btn').addEventListener('click', () => {
-    document.getElementById('create-member-form').classList.toggle('is-hidden');
-  });
 
   document.getElementById('account-details-close-btn').addEventListener('click', () => {
     document.getElementById('account-details-modal').classList.add('is-hidden');
@@ -1733,7 +1730,6 @@ function initAuth() {
       }
       setFormMessage('create-member-message', `Invited ${email} as ${role}. They'll receive an email to set their password.`, 'success');
       e.target.reset();
-      e.target.classList.add('is-hidden');
       loadMembers();
     } catch (err) {
       // Surface the real browser-level error instead of a vague generic
@@ -1768,20 +1764,21 @@ const accountDetailsState = { targetId: null, targetEmail: null };
 
 async function loadMembers() {
   const tbody = document.getElementById('members-table-body');
-  tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Loading…</td></tr>';
   try {
     const { data: rows, error } = await db.from('profiles').select('id, name, email, role, managed_by, must_change_password').order('email');
     if (error) throw error;
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="log-empty">No members yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="log-empty">No members yet.</td></tr>';
       return;
     }
 
     tbody.innerHTML = rows.map((r) => `
       <tr data-id="${r.id}" data-name="${r.name || ''}" data-email="${r.email}" data-role="${r.role}" data-managed-by="${r.managed_by || ''}">
-        <td>${r.email}</td>
+        <td>${r.name || '—'}</td>
         <td>${r.role}</td>
-        <td>${r.must_change_password ? 'Not yet' : 'Yes'}</td>
+        <td>${r.email}</td>
+        <td>${r.must_change_password ? 'Invitation sent' : 'Active'}</td>
       </tr>
     `).join('');
 
@@ -1789,7 +1786,7 @@ async function loadMembers() {
       row.addEventListener('click', () => openAccountDetails(row.dataset));
     });
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="3" class="log-empty">Could not load members.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Could not load members.</td></tr>';
     console.error(err);
   }
 }
