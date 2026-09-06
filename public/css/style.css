@@ -81,6 +81,9 @@ ul { margin: 0; padding: 0; list-style: none; }
   width: auto;
   object-fit: contain;
   display: block;
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 8px 12px;
 }
 
 .brand-mark {
