@@ -29,19 +29,12 @@ function updateClock() {
 // ---------------- Dashboard ----------------
 
 async function loadDashboard() {
-  const statusDot = document.getElementById('server-status-dot');
-  const statusText = document.getElementById('server-status-text');
-
   try {
     const { count: projectCount, error: countErr } = await db
       .from('projects').select('*', { count: 'exact', head: true });
     if (countErr) throw countErr;
     document.getElementById('stat-project-count').textContent = projectCount;
-
-    statusDot.classList.add('is-live');
-    statusText.textContent = 'Connected to Supabase';
   } catch (err) {
-    statusText.textContent = 'Could not reach Supabase';
     console.error(err);
   }
 }

@@ -75,6 +75,14 @@ ul { margin: 0; padding: 0; list-style: none; }
   border-bottom: 1px solid rgba(255,255,255,0.09);
 }
 
+.brand-logo {
+  max-width: 100%;
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
 .brand-mark {
   position: relative;
   width: 22px;
