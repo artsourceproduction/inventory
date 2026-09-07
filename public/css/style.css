@@ -537,6 +537,15 @@ tr.is-depleted td:nth-child(4) { font-weight: 600; }
 }
 
 /* ---- Auth (login / set password / account management) ---- */
+/* Nobody sees content without logging in - the app blurs and can't be
+   interacted with until authenticated; only the login modal (a sibling
+   element, not inside .app-shell) stays sharp and usable. */
+.app-shell.is-locked {
+  filter: blur(10px);
+  pointer-events: none;
+  user-select: none;
+}
+
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(27,30,34,0.55);
   display: flex; align-items: center; justify-content: center; z-index: 1000;

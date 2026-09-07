@@ -1556,6 +1556,11 @@ function applyAuthUI() {
   document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
   document.getElementById('settings-nav-item').classList.toggle('is-hidden', !isOwnerOrAdmin);
 
+  // Nobody sees any content without logging in - the whole app blurs
+  // and only the login form stays usable until authenticated.
+  document.getElementById('app-shell').classList.toggle('is-locked', !loggedIn);
+  document.getElementById('login-modal').classList.toggle('is-hidden', loggedIn);
+
   if (loggedIn) {
     const displayName = (authState.profile && authState.profile.name) || authState.user.email;
     document.getElementById('auth-user-email').textContent = displayName;
@@ -1594,9 +1599,6 @@ function initAuth() {
   const loginModal = document.getElementById('login-modal');
   document.getElementById('login-open-btn').addEventListener('click', () => {
     loginModal.classList.remove('is-hidden');
-  });
-  document.getElementById('login-cancel-btn').addEventListener('click', () => {
-    loginModal.classList.add('is-hidden');
   });
 
   document.getElementById('login-form').addEventListener('submit', async (e) => {
