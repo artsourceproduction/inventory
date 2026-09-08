@@ -1590,6 +1590,8 @@ async function refreshAuthState() {
   authState.profile = profile || null;
 
   if (profile && profile.must_change_password) {
+    document.getElementById('set-name-field').classList.remove('is-hidden');
+    document.getElementById('set-designation-field').classList.remove('is-hidden');
     document.getElementById('set-password-modal').classList.remove('is-hidden');
   }
   applyAuthUI();
@@ -1625,16 +1627,17 @@ function initAuth() {
   // pre-existing account that still has must_change_password = true.
   document.getElementById('set-password-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const nameFieldVisible = !document.getElementById('set-name-field').classList.contains('is-hidden');
     const name = document.getElementById('set-name').value.trim();
     const designation = document.getElementById('set-designation').value.trim();
     const p1 = document.getElementById('set-password-1').value;
     const p2 = document.getElementById('set-password-2').value;
 
-    if (!name) {
+    if (nameFieldVisible && !name) {
       setFormMessage('set-password-message', 'Enter your name.', 'error');
       return;
     }
-    if (!designation) {
+    if (nameFieldVisible && !designation) {
       setFormMessage('set-password-message', 'Enter your designation.', 'error');
       return;
     }
@@ -1652,7 +1655,15 @@ function initAuth() {
       setFormMessage('set-password-message', error.message, 'error');
       return;
     }
-    await db.from('profiles').update({ name, designation, must_change_password: false }).eq('id', authState.user.id);
+    // Only touch name/designation when that step was actually shown -
+    // otherwise this would silently blank out an existing user's
+    // already-saved name/designation on a simple password reset.
+    const profileUpdate = { must_change_password: false };
+    if (nameFieldVisible) {
+      profileUpdate.name = name;
+      profileUpdate.designation = designation;
+    }
+    await db.from('profiles').update(profileUpdate).eq('id', authState.user.id);
     document.getElementById('set-password-modal').classList.add('is-hidden');
     document.getElementById('set-password-form').reset();
     await refreshAuthState();
@@ -1721,7 +1732,42 @@ function initAuth() {
     }
   });
 
-  db.auth.onAuthStateChange(() => refreshAuthState());
+  document.getElementById('forgot-password-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    if (!email) {
+      setFormMessage('login-message', 'Enter your email above first, then click "Forgot password?".', 'error');
+      return;
+    }
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    // Deliberately the same message either way - Supabase itself never
+    // reveals whether an email is registered, to prevent someone using
+    // this form to find out which addresses have accounts.
+    if (error) {
+      setFormMessage('login-message', 'Could not process the request. Try again shortly.', 'error');
+    } else {
+      setFormMessage('login-message', 'If that email is registered, a reset link has been sent.', 'success');
+    }
+  });
+
+  db.auth.onAuthStateChange(async (event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // They arrived via a "Forgot password" email link. Get their
+      // profile first so we know whether Name/Designation are already
+      // set (existing user resetting a forgotten password) or not
+      // (shouldn't normally happen via recovery, but handled safely
+      // either way) - only ask for what's actually missing.
+      await refreshAuthState();
+      const hasName = authState.profile && authState.profile.name;
+      document.getElementById('set-name-field').classList.toggle('is-hidden', !!hasName);
+      document.getElementById('set-designation-field').classList.toggle('is-hidden', !!hasName);
+      document.getElementById('set-name').required = !hasName;
+      document.getElementById('set-designation').required = !hasName;
+      document.getElementById('set-password-modal').classList.remove('is-hidden');
+      return;
+    }
+    refreshAuthState();
+  });
   refreshAuthState();
 }
 
