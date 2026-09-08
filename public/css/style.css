@@ -63,7 +63,10 @@ ul { margin: 0; padding: 0; list-style: none; }
   padding: 28px 20px;
   position: sticky;
   top: 0;
-  height: 100vh;
+  align-self: start;
+  height: auto;
+  border-radius: 0 20px 20px 0;
+  overflow: hidden;
 }
 
 .brand {
