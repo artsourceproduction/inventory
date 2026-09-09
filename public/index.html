@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<div class="bg-decor" aria-hidden="true"></div>
+
 <div class="app-shell is-locked" id="app-shell">
 
   <aside class="sidebar">
@@ -36,16 +38,6 @@
         <span class="nav-label">Machine Service History</span>
       </a>
     </nav>
-
-    <div class="sidebar-foot" id="auth-area">
-      <button type="button" class="btn-secondary" id="login-open-btn" style="width:100%;">Log In</button>
-      <div id="logged-in-info" class="is-hidden">
-        <div style="font-size:11.5px;color:#bdc1c8;margin-bottom:6px;">
-          <span id="auth-user-email"></span><span id="auth-user-role-wrap"> · <span id="auth-user-role"></span></span>
-        </div>
-        <button type="button" class="btn-secondary" id="logout-btn" style="width:100%;">Log Out</button>
-      </div>
-    </div>
   </aside>
 
   <main class="main">
@@ -56,10 +48,18 @@
           <h1 id="page-title">Dashboard</h1>
         </div>
       </div>
-      <div class="topbar-meta">
-        <span id="clock">--:--</span>
+      <div class="topbar-meta" id="auth-area">
+        <div class="topbar-clock" id="clock">--:--</div>
+        <button type="button" class="btn-secondary" id="login-open-btn">Log In</button>
+        <div id="logged-in-info" class="is-hidden">
+          <div class="topbar-identity">
+            <span id="auth-user-email"></span><span id="auth-user-role-wrap"> · <span id="auth-user-role"></span></span>
+          </div>
+          <button type="button" id="logout-btn" class="logout-btn-glass">Logout</button>
+        </div>
       </div>
     </header>
+
 
     <section class="view" id="view-dashboard">
 
