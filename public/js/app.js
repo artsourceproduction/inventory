@@ -1556,6 +1556,11 @@ function applyAuthUI() {
   document.getElementById('logged-in-info').classList.toggle('is-hidden', !loggedIn);
   document.getElementById('settings-nav-item').classList.toggle('is-hidden', !isOwnerOrAdmin);
 
+  const isOwner = authState.profile && authState.profile.role === 'owner';
+  document.querySelectorAll('.owner-clear-btn').forEach((btn) => {
+    btn.classList.toggle('is-hidden', !isOwner);
+  });
+
   // Nobody sees any content without logging in - the whole app blurs
   // and only the login form stays usable until authenticated.
   document.getElementById('app-shell').classList.toggle('is-locked', !loggedIn);
@@ -1862,5 +1867,39 @@ async function removeMember(targetId, email) {
     console.error(err);
   }
 }
+
+async function ownerClearAction(rpcName, confirmMsg, reloadFns) {
+  if (!confirm(confirmMsg)) return;
+  const { error } = await db.rpc(rpcName);
+  if (error) {
+    alert(error.message || 'Could not clear records.');
+    return;
+  }
+  reloadFns.forEach((fn) => fn());
+}
+
+document.getElementById('clear-print-records-btn').addEventListener('click', () => {
+  ownerClearAction(
+    'clear_print_records',
+    'Clear ALL print records? This permanently deletes every entered print record and cannot be undone.',
+    [() => loadPrintRecords(printRecordsState.lastRange && printRecordsState.lastRange.from, printRecordsState.lastRange && printRecordsState.lastRange.to)]
+  );
+});
+
+document.getElementById('clear-ink-btn').addEventListener('click', () => {
+  ownerClearAction(
+    'clear_ink_records',
+    'Clear ALL ink batches, receipts, and issues? This permanently resets ink stock to zero for every ink and cannot be undone.',
+    [loadStock, loadBatches, loadIssues, loadOnMachineStatus]
+  );
+});
+
+document.getElementById('clear-consumables-btn').addEventListener('click', () => {
+  ownerClearAction(
+    'clear_consumable_records',
+    'Clear ALL consumables, receipts, and issues? This permanently deletes every consumable entry and cannot be undone.',
+    [loadConsumableStock, loadConsumables, loadConsumableIssues, populateConsumableIssueSelect]
+  );
+});
 
 initAuth();

@@ -594,3 +594,15 @@ body.read-only #create-member-form button {
 
 #members-table-body tr { cursor: pointer; }
 #members-table-body tr:hover { background: var(--paper); }
+
+.owner-clear-btn {
+  background: #c0221a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.owner-clear-btn:hover { background: #9e1c15; }
