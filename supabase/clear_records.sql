@@ -8,26 +8,26 @@
 CREATE OR REPLACE FUNCTION clear_print_records() RETURNS VOID AS $$
 BEGIN
   IF NOT is_owner() THEN RAISE EXCEPTION 'Only the Owner can do this.'; END IF;
-  DELETE FROM print_records;
+  DELETE FROM print_records WHERE true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION clear_ink_records() RETURNS VOID AS $$
 BEGIN
   IF NOT is_owner() THEN RAISE EXCEPTION 'Only the Owner can do this.'; END IF;
-  DELETE FROM ink_issues;
-  DELETE FROM on_machine_status;
-  DELETE FROM ink_receipts;
-  DELETE FROM ink_batches;
+  DELETE FROM ink_issues WHERE true;
+  DELETE FROM on_machine_status WHERE true;
+  DELETE FROM ink_receipts WHERE true;
+  DELETE FROM ink_batches WHERE true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION clear_consumable_records() RETURNS VOID AS $$
 BEGIN
   IF NOT is_owner() THEN RAISE EXCEPTION 'Only the Owner can do this.'; END IF;
-  DELETE FROM consumable_issues;
-  DELETE FROM consumable_receipts;
-  DELETE FROM consumables;
+  DELETE FROM consumable_issues WHERE true;
+  DELETE FROM consumable_receipts WHERE true;
+  DELETE FROM consumables WHERE true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
