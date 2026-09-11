@@ -1902,4 +1902,26 @@ document.getElementById('clear-consumables-btn').addEventListener('click', () =>
   );
 });
 
+document.getElementById('clear-projects-btn').addEventListener('click', () => {
+  ownerClearAction(
+    'clear_projects_history',
+    'Clear ALL projects and their print records? This permanently deletes every project along with every print job under it, and cannot be undone.',
+    [loadProjectsView]
+  );
+});
+
+document.getElementById('clear-service-history-btn').addEventListener('click', async () => {
+  if (!machineServiceState.currentMachineId) {
+    alert('Could not determine the selected machine.');
+    return;
+  }
+  if (!confirm('Clear ALL service history for this machine? This permanently deletes every service entry for it and cannot be undone.')) return;
+  const { error } = await db.rpc('clear_machine_service_history', { p_machine_id: machineServiceState.currentMachineId });
+  if (error) {
+    alert(error.message || 'Could not clear service history.');
+    return;
+  }
+  loadMachineServiceHistory(machineServiceState.currentMachineCode);
+});
+
 initAuth();
