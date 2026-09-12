@@ -999,11 +999,15 @@ async function loadMachineServiceHistory(machineCode) {
   document.getElementById('service-entry-form').reset();
   document.getElementById('service-entry-form').classList.add('is-hidden');
   setFormMessage('add-service-entry-message', '', null);
+  document.getElementById('ticket-form').reset();
+  document.getElementById('ticket-form').classList.add('is-hidden');
+  setFormMessage('ticket-message', '', null);
 
   try {
     const { data: machine, error: mErr } = await db.from('machines').select('id').eq('code', machineCode).single();
     if (mErr) throw mErr;
     machineServiceState.currentMachineId = machine.id;
+    loadTickets();
 
     const { data: rows, error } = await db
       .from('machine_service_records')
@@ -1036,6 +1040,150 @@ function formatDateTime(value) {
   if (!value) return '—';
   const d = new Date(value);
   return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// ---------------- Machine Service Tickets ----------------
+
+const ticketState = { currentTicketId: null };
+
+async function loadTickets() {
+  const tbody = document.getElementById('tickets-table-body');
+  tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Loading…</td></tr>';
+
+  try {
+    const { data: rows, error } = await db
+      .from('machine_service_tickets')
+      .select('id, token_code, sent_at, problem, status')
+      .eq('machine_id', machineServiceState.currentMachineId)
+      .order('sent_at', { ascending: false });
+    if (error) throw error;
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="log-empty">No tickets yet for this machine.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr data-id="${r.id}">
+        <td>${r.token_code}</td>
+        <td>${formatDateTime(r.sent_at)}</td>
+        <td>${r.problem}</td>
+        <td>${r.status === 'resolved' ? 'Fixed' : 'Not fixed'}</td>
+      </tr>
+    `).join('');
+
+    document.querySelectorAll('#tickets-table-body tr').forEach((row) => {
+      row.addEventListener('click', () => openTicketDetails(row.dataset.id));
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Could not load tickets.</td></tr>';
+    console.error(err);
+  }
+}
+
+async function openTicketDetails(ticketId) {
+  try {
+    const { data: t, error } = await db
+      .from('machine_service_tickets')
+      .select('id, token_code, sent_at, problem, description, status')
+      .eq('id', ticketId)
+      .single();
+    if (error) throw error;
+
+    ticketState.currentTicketId = t.id;
+    document.getElementById('td-token').textContent = t.token_code;
+    document.getElementById('td-sent').textContent = formatDateTime(t.sent_at);
+    document.getElementById('td-problem').textContent = t.problem;
+    document.getElementById('td-description').textContent = t.description || '—';
+    document.getElementById('td-status').textContent = t.status === 'resolved' ? 'Fixed' : 'Not fixed';
+    setFormMessage('ticket-details-message', '', null);
+
+    const canEdit = authState.profile && authState.profile.role !== 'viewer';
+    document.getElementById('ticket-resolve-btn').classList.toggle('is-hidden', t.status === 'resolved' || !canEdit);
+
+    document.getElementById('ticket-details-modal').classList.remove('is-hidden');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function initTickets() {
+  const dateInput = document.getElementById('ticket-sent-date');
+  const timeInput = document.getElementById('ticket-sent-time');
+
+  document.getElementById('add-ticket-btn').addEventListener('click', () => {
+    const form = document.getElementById('ticket-form');
+    form.classList.toggle('is-hidden');
+    if (!dateInput.value) {
+      const now = new Date();
+      dateInput.value = now.toISOString().slice(0, 10);
+      timeInput.value = now.toTimeString().slice(0, 5);
+    }
+  });
+
+  document.getElementById('ticket-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const problem = document.getElementById('ticket-problem').value.trim();
+    const description = document.getElementById('ticket-description').value.trim();
+    const sentDate = dateInput.value;
+    const sentTime = timeInput.value;
+
+    if (!problem || !sentDate || !sentTime) {
+      setFormMessage('ticket-message', 'Fill in the date, time, and problem.', 'error');
+      return;
+    }
+    if (!machineServiceState.currentMachineId) {
+      setFormMessage('ticket-message', 'Could not determine the selected machine.', 'error');
+      return;
+    }
+
+    const submitBtn = e.target.querySelector('.btn-primary');
+    submitBtn.disabled = true;
+
+    try {
+      const machineId = machineServiceState.currentMachineId;
+      const { count, error: countErr } = await db
+        .from('machine_service_tickets').select('*', { count: 'exact', head: true }).eq('machine_id', machineId);
+      if (countErr) throw countErr;
+
+      const tokenCode = `${machineServiceState.currentMachineCode}-T${String((count || 0) + 1).padStart(4, '0')}`;
+      const sentAt = `${sentDate}T${sentTime}:00`;
+
+      const { error: insertErr } = await db.from('machine_service_tickets').insert({
+        machine_id: machineId, token_code: tokenCode, sent_at: sentAt, problem, description: description || null,
+      });
+      if (insertErr) throw insertErr;
+
+      setFormMessage('ticket-message', `Ticket ${tokenCode} created.`, 'success');
+      e.target.reset();
+      e.target.classList.add('is-hidden');
+      loadTickets();
+    } catch (err) {
+      setFormMessage('ticket-message', err.message || 'Could not save ticket.', 'error');
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('ticket-details-close-btn').addEventListener('click', () => {
+    document.getElementById('ticket-details-modal').classList.add('is-hidden');
+  });
+
+  document.getElementById('ticket-resolve-btn').addEventListener('click', async () => {
+    try {
+      const { error } = await db
+        .from('machine_service_tickets')
+        .update({ status: 'resolved' })
+        .eq('id', ticketState.currentTicketId);
+      if (error) throw error;
+      document.getElementById('ticket-details-modal').classList.add('is-hidden');
+      loadTickets();
+    } catch (err) {
+      setFormMessage('ticket-details-message', err.message || 'Could not update ticket.', 'error');
+      console.error(err);
+    }
+  });
 }
 
 document.getElementById('add-service-entry-btn').addEventListener('click', () => {
@@ -1924,4 +2072,5 @@ document.getElementById('clear-service-history-btn').addEventListener('click', a
   loadMachineServiceHistory(machineServiceState.currentMachineCode);
 });
 
+initTickets();
 initAuth();

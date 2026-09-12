@@ -587,6 +587,7 @@ tr.is-depleted td:nth-child(4) { font-weight: 600; }
    disabled - real enforcement is server-side RLS, this is UX clarity. */
 body.read-only .receiving-form input,
 body.read-only .receiving-form select,
+body.read-only .receiving-form textarea,
 body.read-only .receiving-form button,
 body.read-only #create-member-form input,
 body.read-only #create-member-form select,
@@ -596,6 +597,8 @@ body.read-only #create-member-form button {
 
 #members-table-body tr { cursor: pointer; }
 #members-table-body tr:hover { background: var(--paper); }
+#tickets-table-body tr { cursor: pointer; }
+#tickets-table-body tr:hover { background: var(--paper); }
 
 .owner-clear-btn {
   background: #c0221a;

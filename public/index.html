@@ -675,8 +675,63 @@
             <tr><td colspan="5" class="log-empty">Loading…</td></tr>
           </tbody>
         </table>
+
+        <div class="panel-head" style="margin-top:28px;">
+          <h3 style="font-size:13.5px; margin:0;">Tickets</h3>
+          <button type="button" class="btn-primary" id="add-ticket-btn">+ Add a Ticket</button>
+        </div>
+
+        <form class="receiving-form is-hidden" id="ticket-form">
+          <div class="field">
+            <label for="ticket-sent-date">Date Mail Sent *</label>
+            <input type="date" id="ticket-sent-date" required>
+          </div>
+          <div class="field">
+            <label for="ticket-sent-time">Time Mail Sent *</label>
+            <input type="time" id="ticket-sent-time" required>
+          </div>
+          <div class="field" style="flex: 1 1 100%;">
+            <label for="ticket-problem">Problem *</label>
+            <input type="text" id="ticket-problem" required>
+          </div>
+          <div class="field" style="flex: 1 1 100%;">
+            <label for="ticket-description">Description</label>
+            <textarea id="ticket-description" rows="4" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font-family:inherit; font-size:13px;"></textarea>
+          </div>
+          <div class="field field--action">
+            <button type="submit" class="btn-primary">Save Ticket</button>
+          </div>
+        </form>
+        <p class="form-message" id="ticket-message"></p>
+
+        <table class="log-table" id="tickets-table">
+          <thead>
+            <tr><th>Token Code</th><th>Date Mail Sent</th><th>Subject</th><th>Status</th></tr>
+          </thead>
+          <tbody id="tickets-table-body">
+            <tr><td colspan="4" class="log-empty">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
+
+    <div class="modal-overlay is-hidden" id="ticket-details-modal">
+      <div class="modal-box" style="width:480px;">
+        <h2>Ticket <span id="td-token"></span></h2>
+        <div style="font-size:13.5px; line-height:1.9; margin-bottom:16px;">
+          <div><strong>Date Mail Sent:</strong> <span id="td-sent"></span></div>
+          <div><strong>Problem:</strong> <span id="td-problem"></span></div>
+          <div><strong>Description:</strong></div>
+          <div id="td-description" style="white-space:pre-wrap; color:var(--ink-700);"></div>
+          <div style="margin-top:10px;"><strong>Status:</strong> <span id="td-status"></span></div>
+        </div>
+        <p class="form-message" id="ticket-details-message"></p>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn-secondary" id="ticket-details-close-btn">Close</button>
+          <button type="button" class="btn-primary is-hidden" id="ticket-resolve-btn">Mark as Resolved</button>
+        </div>
+      </div>
+    </div>
 
     <section class="view is-hidden" id="view-settings">
       <div class="panel inv-card">
